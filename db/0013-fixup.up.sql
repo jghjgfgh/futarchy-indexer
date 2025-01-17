@@ -1,13 +1,13 @@
-CREATE TABLE prices_chart_data_test
-(
-  interv TIMESTAMPTZ NOT NULL,
-  price NUMERIC NOT NULL,
-  base_amount  NUMERIC,
-  quote_amount NUMERIC,
-  prices_type TEXT NOT NULL,
-  market_acct TEXT NOT NULL,
-  PRIMARY KEY (market_acct, prices_type, interv)
-);
+-- CREATE TABLE prices_chart_data_test
+-- (
+--   interv TIMESTAMPTZ NOT NULL,
+--   price NUMERIC NOT NULL,
+--   base_amount  NUMERIC,
+--   quote_amount NUMERIC,
+--   prices_type TEXT NOT NULL,
+--   market_acct TEXT NOT NULL,
+--   PRIMARY KEY (market_acct, prices_type, interv)
+-- );
 
 
 CREATE TABLE prices_chart_data_test_test
@@ -23,11 +23,12 @@ CREATE TABLE prices_chart_data_test_test
 );
 
 CREATE OR REPLACE FUNCTION test_generate_forward_filled_prices()
- RETURNS void
- LANGUAGE plpgsql
-AS $function$
+RETURNS VOID
+LANGUAGE PLPGSQL
+AS
+$$
 DECLARE
-    market_record RECORD;
+  market_record RECORD;
 BEGIN
     -- -- Get the latest timestamp minus an hour
     -- SELECT MAX(interv) - INTERVAL '1 hour'
@@ -108,7 +109,8 @@ BEGIN
           SELECT market_acct,
                  prices_type,
                  MAX(interv) AS last_update
-          FROM prices_chart_data_test
+          FROM prices_chart_data_test_test
+          WHERE bar_size = INTERVAL '30 seconds'
           GROUP BY market_acct, prices_type
         ) AS tt
       )
@@ -142,8 +144,8 @@ BEGIN
         RAISE NOTICE 'RECORD: %', market_record;
 
         -- Insert forward filled data for this market
-        INSERT INTO prices_chart_data_test_new (
-            interv, price, base_amount, quote_amount, prices_type, market_acct
+        INSERT INTO prices_chart_data_test_test (
+            interv, price, base_amount, quote_amount, prices_type, market_acct, bar_size
         )
         WITH series AS (
             SELECT generate_series(
@@ -169,12 +171,13 @@ BEGIN
         ),
         including_prev AS
         (
-          SELECT * FROM matching_amm_data
+          SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM matching_amm_data
           UNION ALL
-          SELECT * FROM prices_chart_data_test
+          SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM prices_chart_data_test_test
           WHERE market_acct = market_record.market_acct
           AND prices_type = market_record.prices_type
           AND interv < market_record.start_ts
+          AND bar_size = INTERVAL '30 seconds'
           ORDER BY interv DESC NULLS LAST
           LIMIT 1
         ),
@@ -218,8 +221,17 @@ BEGIN
           UNION ALL
           SELECT * FROM ffill_bars
         )
-        SELECT * FROM final_union
-        ON CONFLICT (market_acct, interv) DO NOTHING;
+        SELECT *, INTERVAL '30 seconds' AS bar_size FROM final_union
+        ON CONFLICT (market_acct, prices_type, interv, bar_size) DO NOTHING;
     END LOOP;
 END;
-$function$;
+$$;
+
+
+CREATE FUNCTION test_generate_rollup_bars()
+RETURNS VOID
+LANGUAGE PLPGSQL
+AS
+$$
+
+$$;
