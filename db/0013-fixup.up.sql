@@ -1,16 +1,7 @@
--- CREATE TABLE prices_chart_data_test
--- (
---   interv TIMESTAMPTZ NOT NULL,
---   price NUMERIC NOT NULL,
---   base_amount  NUMERIC,
---   quote_amount NUMERIC,
---   prices_type TEXT NOT NULL,
---   market_acct TEXT NOT NULL,
---   PRIMARY KEY (market_acct, prices_type, interv)
--- );
 
+ALTER TABLE prices_chart_data RENAME TO prices_chart_data_old_2025_01_19;
 
-CREATE TABLE prices_chart_data_test_test
+CREATE TABLE prices_chart_data
 (
   interv TIMESTAMPTZ NOT NULL,
   price NUMERIC NOT NULL,
@@ -109,7 +100,7 @@ BEGIN
           SELECT market_acct,
                  prices_type,
                  MAX(interv) AS last_update
-          FROM prices_chart_data_test_test
+          FROM prices_chart_data
           WHERE bar_size = INTERVAL '30 seconds'
           GROUP BY market_acct, prices_type
         ) AS tt
@@ -143,7 +134,7 @@ BEGIN
         -- RAISE NOTICE 'RECORD: %', market_record;
 
         -- Insert forward filled data for this market
-        INSERT INTO prices_chart_data_test_test (
+        INSERT INTO prices_chart_data (
             interv, price, base_amount, quote_amount, prices_type, market_acct, bar_size
         )
         WITH series AS (
@@ -173,7 +164,7 @@ BEGIN
           SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM matching_amm_data
           UNION ALL
           (
-            SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM prices_chart_data_test_test
+            SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM prices_chart_data
             WHERE market_acct = market_record.market_acct
             AND prices_type = market_record.prices_type
             AND interv < market_record.start_ts
@@ -244,7 +235,7 @@ $$;
 --   select market_acct,
 --          interv,
 --          lag(interv, 1) over (partition by market_acct order by interv) as interv_lag
---   from prices_chart_data_test_test
+--   from prices_chart_data
 --   WHERE bar_size = INTERVAL '30 seconds'
 -- )
 -- select *
