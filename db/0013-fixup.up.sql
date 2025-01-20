@@ -15,6 +15,11 @@ CREATE TABLE prices_chart_data
   PRIMARY KEY (market_acct, prices_type, bar_size, interv)
 );
 
+-- NOTE: check stats after running for a bit and remove unused
+CREATE INDEX ON prices_chart_data (bar_size, market_acct, prices_type, interv DESC NULLS LAST);
+CREATE INDEX ON prices_chart_data (market_acct, interv);
+CREATE INDEX ON prices_chart_data (market_acct, prices_type, bar_size);
+
 CREATE OR REPLACE FUNCTION test_generate_forward_filled_prices()
 RETURNS VOID
 LANGUAGE PLPGSQL
