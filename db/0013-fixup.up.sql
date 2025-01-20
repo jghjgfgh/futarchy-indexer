@@ -130,7 +130,6 @@ BEGIN
         -- -- empty range
         -- CONTINUE WHEN market_record.start_ts >= market_record.end_ts;
 
-
         -- RAISE NOTICE 'RECORD A: %', market_record;
 
         -- -- optimization for markets that don't have any prices yet
@@ -141,7 +140,7 @@ BEGIN
         --                                                                 and created_at <= market_record.end_ts + INTERVAL '30 seconds'
         --                                                                 limit 1);
 
-        RAISE NOTICE 'RECORD: %', market_record;
+        -- RAISE NOTICE 'RECORD: %', market_record;
 
         -- Insert forward filled data for this market
         INSERT INTO prices_chart_data_test_test (
@@ -173,13 +172,15 @@ BEGIN
         (
           SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM matching_amm_data
           UNION ALL
-          SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM prices_chart_data_test_test
-          WHERE market_acct = market_record.market_acct
-          AND prices_type = market_record.prices_type
-          AND interv < market_record.start_ts
-          AND bar_size = INTERVAL '30 seconds'
-          ORDER BY interv DESC NULLS LAST
-          LIMIT 1
+          (
+            SELECT interv, price, base_amount, quote_amount, prices_type, market_acct FROM prices_chart_data_test_test
+            WHERE market_acct = market_record.market_acct
+            AND prices_type = market_record.prices_type
+            AND interv < market_record.start_ts
+            AND bar_size = INTERVAL '30 seconds'
+            ORDER BY interv DESC NULLS LAST
+            LIMIT 1
+          )
         ),
         including_next AS
         (
