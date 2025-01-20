@@ -229,10 +229,24 @@ END;
 $$;
 
 
-CREATE FUNCTION test_generate_rollup_bars()
-RETURNS VOID
-LANGUAGE PLPGSQL
-AS
-$$
+-- CREATE FUNCTION test_generate_rollup_bars()
+-- RETURNS VOID
+-- LANGUAGE PLPGSQL
+-- AS
+-- $$
 
-$$;
+-- $$;
+
+
+-- check for gaps
+-- with base as
+-- (
+--   select market_acct,
+--          interv,
+--          lag(interv, 1) over (partition by market_acct order by interv) as interv_lag
+--   from prices_chart_data_test_test
+--   WHERE bar_size = INTERVAL '30 seconds'
+-- )
+-- select *
+-- from base
+-- where interv - interv_lag > interval '30 seconds';
