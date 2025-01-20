@@ -1,3 +1,5 @@
+-- NOTE: already made on staging
+CREATE INDEX ON prices (market_acct, created_at);
 
 ALTER TABLE prices_chart_data RENAME TO prices_chart_data_old_2025_01_19;
 
