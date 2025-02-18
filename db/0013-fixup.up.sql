@@ -20,6 +20,50 @@ CREATE INDEX ON prices_chart_data (bar_size, market_acct, prices_type, interv DE
 CREATE INDEX ON prices_chart_data (market_acct, interv);
 CREATE INDEX ON prices_chart_data (market_acct, prices_type, bar_size);
 
+CREATE or replace FUNCTION generate_rollup_prices(_bar_size INTERVAL)
+RETURNS VOID
+LANGUAGE SQL
+AS
+$$
+  WITH base AS
+  (
+    select market_acct,
+           prices_type,
+           min(interv) AS base_min_interv,
+           max(interv) AS base_max_interv
+    from prices_chart_data_v3
+    where bar_size = '30 seconds'
+    group by market_acct, prices_type
+  ),
+  current_bar as
+  (
+    select market_acct,
+           prices_type,
+           min(interv) AS current_min_interv,
+           max(interv) AS current_max_interv
+    FROM prices_chart_data_v3
+    where bar_size = _bar_size
+    group by market_acct, prices_type
+  ),
+  to_generate as materialized
+  (
+    SELECT market_acct,
+           prices_type,
+           generate_series(COALESCE(current_max_interv + _bar_size, time_bucket(_bar_size, base_min_interv)),
+                           time_bucket(_bar_size, base_max_interv) - _bar_size,
+                           _bar_size) AS ts
+    FROM base natural left join current_bar
+  )
+  insert into prices_chart_data_v3 (interv, price, base_amount, quote_amount, prices_type, market_acct, bar_size)
+  select to_generate.ts, pcd.price, pcd.base_amount, pcd.quote_amount, pcd.prices_type, pcd.market_acct, _bar_size
+  from to_generate
+  join prices_chart_data_v3 as pcd
+  on pcd.bar_size = '30 seconds'
+  and to_generate.ts + _bar_size = pcd.interv
+  and to_generate.market_acct = pcd.market_acct
+  and to_generate.prices_type = pcd.prices_type;
+$$;
+
 CREATE FUNCTION generate_forward_filled_prices()
 RETURNS VOID
 LANGUAGE PLPGSQL
